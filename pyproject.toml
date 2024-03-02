@@ -5,9 +5,139 @@ description = "A pre-commit prepare-commit-msg script to check for PRNJ-nnnnn an
 authors = ["Prorenata Backend Team <backend@prorenata.se>"]
 readme = "README.md"
 
+[tool.poetry.scripts]
+prnj-dev-branch-and-commit-message = "prnj_dev_branch_and_commit_message.__main__:cli"
+
 [tool.poetry.dependencies]
 python = ">=3.9"
+click = "~8.1.7"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.3.0"
+mypy = "^1.8.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+lint.unfixable = ["B007", "F841", "SIM117"]
+lint.select = ["ALL"]
+lint.ignore = [
+  "ANN", # flake8-annotations  # Mypy is fully in use.
+  "DTZ", # flake8-datetimez  # datetime without explicit tz
+  "FIX", # flake8-fixme  # Tells me to fix TODOs, duh!
+  "D", # Documentation rules
+
+  "RET505", # Unnecessary else after return statement
+  "RUF012", # Mutable class attributes shoul be annotated with ClassVar
+
+  "E731", # Don't use lambda expressions
+  "UP032", # Use f-string instead of format call
+
+  "SLF001", # Access to underscore member
+  "TRY003", # Avoid long messages outside of exception class
+  "TRY301", # Abstract `raise` to an inner function
+  "EM101", # Exception must not use a string literal, assign to variable first
+  "EM102", # Exception must not use f-string
+  "EM103", # Exception must not use a .format()
+
+  "A003", # Class attribute shadowing Python builtin
+  "ARG001", # Unused function argument … tricky with Django protocols
+  "ARG002", # Unused method argument … again, tricky with implicit protocols
+  "ARG003", # Unused class method argument …
+  "ARG004", # Unused static method argument …
+  "ARG005", # Unused lambda argument …
+  "C408", # Rewrite dict/list/tuple as literal
+  "TD001", # Invalid TODO tag: `FIXME`
+  "TD003", # Missing issue link in TODO
+
+  "S308", # Use of `mark_safe`
+  "S311", # Pseudo-random not suitable for cryptographic purposes
+  "S324", # Insecure hash function `hashlib.md5`
+  "S603", # Check for untrusted input to subprocess
+  "S320", # Using lxml to parse untrusted XML
+
+  # Disabled because `ruff format` is used.
+  "E501", # Line too long
+  "COM812", # Missing trailing comma
+  "ISC001", # Single-line implicitly concated strings
+
+  # Too complex
+  "C901", # mccabe: Functions with high complexity
+  "PLR0911", # pylint: Too many return statements
+  "PLR0912", # pylint: Functions with too many branches
+  "PLR0913", # pylint: Too many parameters
+  "PLR0915", # pylint: Too many statements
+
+  "SIM102", # Combine two if-statements
+  "PT009", # Use assert instead of unittest self.assert*
+  "T201", # Print found
+
+  # This could be enabled for tests only, but waiting for astral-sh/ruff/issues/3172
+  "PT015", # pytest assert always false
+  "PT027", # pytest raises instead of assertRaises
+]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 80
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*.py" = [
+  "S101", # Uses of `assert`.
+  "S105", # Possible hardcoded password
+  "S106", # Possible hardcoded password
+  "PLR2004", # Magic numbers.
+]
+"**/tests.py" = [
+  "S101",
+  "S105",
+  "S106",
+  "PLR2004",
+]
+"**/migrations/*.py" = [
+  "N806", # Varible should be lowercase
+]
+
+[tool.isort]
+atomic = true
+profile = "black"
+skip_gitignore = true
+
+[tool.isort.sections]
+"django" = ["django"]
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+  "pydantic.validator",
+  "classproperty",
+]
+staticmethod-decorators = [
+  "factory.post_generation",
+]
+extend-ignore-names = [
+  "assert*",
+  "Eketorp",  # N999 violation
+]
+
+[tool.ruff.lint.flake8-builtins]
+builtins-ignorelist = [
+  "format",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+scripts_are_modules = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_equality = true
