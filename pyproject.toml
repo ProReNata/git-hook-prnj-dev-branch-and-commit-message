@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "prnj-dev-branch-and-commit-message"
+version = "0.1.0"
+description = "A pre-commit prepare-commit-msg script to check for PRNJ-nnnnn and DEV-nnnn in the branch name, and add to the end of the commit message (or verify that they are there)"
+authors = ["Prorenata Backend Team <backend@prorenata.se>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
