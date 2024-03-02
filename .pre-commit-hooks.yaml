@@ -1,0 +1,14 @@
+- id: prnj-dev-check-branch
+  name: Verify that the branch contains PRNJ-n and DEV-n
+  description: Checks for PRNJ-n and DEV-n in the branch name
+  entry: prnj-dev-branch-and-commit-message check-branch
+  language: python
+  always_run: true
+  stages: [prepare-commit-msg]
+- id: prnj-dev-commit-msg
+  name: Verify that the commit message contains PRNJ-n and DEV-n, and optionally adds them if missing
+  description: Verifies that PRNJ-n and DEV-n are part of the commit message
+  entry: prnj-dev-branch-and-commit-message check-message
+  language: python
+  always_run: true
+  stages: [commit-msg]
