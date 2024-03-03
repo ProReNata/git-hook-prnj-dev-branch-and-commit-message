@@ -58,6 +58,7 @@ lint.ignore = [
   "S311", # Pseudo-random not suitable for cryptographic purposes
   "S324", # Insecure hash function `hashlib.md5`
   "S603", # Check for untrusted input to subprocess
+  "S607", # Starting a process with partial executable path
   "S320", # Using lxml to parse untrusted XML
 
   # Disabled because `ruff format` is used.

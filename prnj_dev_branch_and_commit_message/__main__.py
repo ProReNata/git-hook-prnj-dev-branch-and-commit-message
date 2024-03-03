@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 import subprocess
@@ -37,7 +39,6 @@ def get_branch() -> Branch:
     if not match:
         found_prnj = bool(re.search(r"PRNJ-\d+", branch_name))
         found_dev = bool(re.search(r"DEV-\d+", branch_name))
-        found_hotfix = bool(re.match(r"hotfix-", branch_name))
         no_description = bool(re.match(r"(?:hotfix-)?PRNJ-\d+-DEV-\d+$", branch_name))
 
         error_msg = []
@@ -74,7 +75,7 @@ class CommitMessage:
     def __post_init__(self, branch: Branch) -> None:
         commit_msg_subject, _, below_subject = self.message.partition("\n")
 
-        # Find the marker, and add the IDs after the first non-comment line above that
+        # Find the scissor, and add the IDs after the first non-comment line above that
         m = re.search(
             r"^# ------------------------ >8 ------------------------",
             below_subject,
@@ -82,24 +83,10 @@ class CommitMessage:
         )
         if m:
             break_location = m.start(0)
-            before_break, after_break = (
+            commit_msg_body, commit_msg_rest = (
                 below_subject[:break_location],
                 below_subject[break_location:],
             )
-
-            body_lines_reversed: list[str] = []
-            comment_lines_reversed: list[str] = []
-            reviter = reversed(before_break.splitlines())
-            for line in reviter:
-                if line.startswith("#"):
-                    comment_lines_reversed.append(line)
-                else:
-                    body_lines_reversed.append(line)
-                    break
-            body_lines_reversed.extend(reviter)
-
-            commit_msg_body = "\n".join(reversed(body_lines_reversed))
-            commit_msg_rest = "\n".join(reversed(comment_lines_reversed)) + "\n" + after_break
         else:
             commit_msg_body, commit_msg_rest = below_subject, ""
 
@@ -137,7 +124,7 @@ def append_to_commit_msg(commit_message_filename: str) -> None:
 
         ids_to_append = "\n".join(parts)
 
-        with open(commit_message_filename, "w") as f:
+        with Path(commit_message_filename).open("w") as f:
             print(commit_msg.subject, file=f)
             print(commit_msg.body, file=f)
             print(f"\n{ids_to_append}", file=f)

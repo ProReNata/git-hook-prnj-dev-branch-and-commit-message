@@ -12,5 +12,5 @@ A script to be run by [pre-commit](https://pre-commit.com), to:
 What if I want to commit code to a branch anyway?
 : Then you can `SKIP=<hook name>` to tell `pre-commit` to skip this check.
 
-What is the environment flag called?
-: It's called `PRNJ_BRANCH_COMMIT_MSG_AUTO_APPEND`
+Can I get the hook to just verify the commit message, not append IDs automatically?
+: Yes, export set an environment flag `PRNJ_BRANCH_COMMIT_MSG_AUTO_APPEND=0`
