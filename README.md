@@ -5,8 +5,8 @@ A script to be run by [pre-commit](https://pre-commit.com), to:
 2. Add the `PRNJ-<number>` and the `DEV-<number>` to the end of the commit
    message, or optionally just verify that they are there, based on an
    environment flag
-3. Allow branches starting with `wip[-/]` or `hack[-/]` to pass without
-   following the naming standard.
+3. Allow branches starting with `wip[-/]` or `hack[-/]` or `poc[-/]` to pass
+   without following the naming standard.
 
 ## FAQ
 What if I want to commit code to a branch anyway?

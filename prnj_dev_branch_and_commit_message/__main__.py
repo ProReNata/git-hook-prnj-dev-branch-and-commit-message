@@ -32,7 +32,7 @@ def get_branch_name_from_git() -> str:
 def get_branch() -> Branch:
     branch_name = get_branch_name_from_git()
 
-    if branch_name.startswith(("wip-", "wip/", "hack-", "hack/")):
+    if branch_name.startswith(("wip-", "wip/", "hack-", "hack/", "poc-", "poc/")):
         return Branch(branch_name, is_wip_hack=True)
 
     match = re.match(r"(?P<hotfix>hotfix-)?(?P<prnj>PRNJ-\d+)-(?P<dev>DEV-\d+)-\w+", branch_name)
