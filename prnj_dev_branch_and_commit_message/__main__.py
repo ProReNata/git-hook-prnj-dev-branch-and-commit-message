@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 from dataclasses import InitVar, dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import NamedTuple
 
@@ -20,6 +21,19 @@ class Branch(NamedTuple):
     @property
     def is_valid(self) -> bool:
         return self.is_wip_hack or bool(self.prnj and self.dev)
+
+
+class MessageSource(Enum):
+    MESSAGE = "message"
+    TEMPLATE = "template"
+    MERGE = "merge"
+    SQUASH = "squash"
+    COMMIT = "commit"
+    NONE = ""
+
+    @property
+    def is_merge(self) -> bool:
+        return self == MessageSource.MERGE
 
 
 def get_branch_name_from_git() -> str:
@@ -60,6 +74,24 @@ def get_branch() -> Branch:
 
     is_hotfix = bool(match["hotfix"])
     return Branch(branch_name, is_hotfix=is_hotfix, prnj=match["prnj"], dev=match["dev"])
+
+
+def get_message_source() -> MessageSource:
+    commit_msg_src = os.environ.get("PRE_COMMIT_COMMIT_MSG_SOURCE")
+    if commit_msg_src is None:
+        try:
+            subprocess.check_call(["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"])
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            commit_msg_src = "merge"
+
+    try:
+        message_source = MessageSource(commit_msg_src)
+    except (TypeError, ValueError):
+        message_source = MessageSource("")
+
+    return message_source
 
 
 @dataclass
@@ -139,12 +171,20 @@ def main() -> None:
 @main.command(name="check-branch")
 @click.argument("commit_msg_filename")
 def check_branch(commit_msg_filename: str) -> None:
+    message_source = get_message_source()
+    if message_source.is_merge:
+        return
+
     _ = get_branch()
 
 
 @main.command(name="check-message")
 @click.argument("commit_msg_filename")
 def check_message(commit_msg_filename: str) -> None:
+    message_source = get_message_source()
+    if message_source.is_merge:
+        return
+
     if os.getenv("PRNJ_BRANCH_COMMIT_MSG_AUTO_APPEND") != "0":
         append_to_commit_msg(commit_msg_filename)
     branch, commit_msg = validate_commit_msg_body(commit_msg_filename)
