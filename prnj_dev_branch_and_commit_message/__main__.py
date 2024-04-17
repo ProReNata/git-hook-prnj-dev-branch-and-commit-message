@@ -107,7 +107,8 @@ class CommitMessage:
     def __post_init__(self, branch: Branch) -> None:
         commit_msg_subject, _, below_subject = self.message.partition("\n")
 
-        # Find the scissor, and add the IDs after the first non-comment line above that
+        # Find the scissor, and add the IDs after the first
+        # non-comment line above that.
         m = re.search(
             r"^# ------------------------ >8 ------------------------",
             below_subject,
@@ -146,7 +147,8 @@ def append_to_commit_msg(commit_message_filename: str) -> None:
     if commit_msg.prnj_found and commit_msg.dev_found:
         return
 
-    # We _should_ be guaranteed to have these here, but mypy and a bad `Branch` type ....
+    # We _should_ be guaranteed to have these here, but mypy and
+    # a bad `Branch` type ….
     if branch.prnj and branch.dev:
         parts = []
         if not commit_msg.dev_found:

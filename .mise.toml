@@ -1,0 +1,6 @@
+[tools]
+python = "3.9.6"
+poetry = "1.8.2"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
