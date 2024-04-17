@@ -76,15 +76,24 @@ def get_branch() -> Branch:
     return Branch(branch_name, is_hotfix=is_hotfix, prnj=match["prnj"], dev=match["dev"])
 
 
+def test(command: str | list[str]) -> bool:
+    try:
+        # Capture the output, even if we don't use it.
+        subprocess.check_output(command, shell=isinstance(command, str))
+    except subprocess.CalledProcessError:
+        return False
+    else:
+        return True
+
+
 def get_message_source() -> MessageSource:
     commit_msg_src = os.environ.get("PRE_COMMIT_COMMIT_MSG_SOURCE")
-    if commit_msg_src is None:
-        try:
-            subprocess.check_call(["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"])
-        except subprocess.CalledProcessError:
-            pass
-        else:
-            commit_msg_src = "merge"
+    if (
+        test("git rev-parse -q --verify MERGE_HEAD")
+        or test("git rev-parse -q --verify REBASE_HEAD")
+        or test("git rev-parse -q --verify CHERRY_PICK_HEAD")
+    ):
+        commit_msg_src = "merge"
 
     try:
         message_source = MessageSource(commit_msg_src)
