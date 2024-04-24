@@ -10,6 +10,10 @@ from typing import NamedTuple
 
 import click
 
+PRNJ = r"(?P<prnj>PRNJ-\d+)"
+DEV = r"(?P<dev>DEV(?:-\d+)?)"
+HOTFIX = r"(?P<hotfix>hotfix-)"
+
 
 class Branch(NamedTuple):
     branch_name: str
@@ -21,6 +25,10 @@ class Branch(NamedTuple):
     @property
     def is_valid(self) -> bool:
         return self.is_wip_hack or bool(self.prnj and self.dev)
+
+    @property
+    def is_dev_without_number(self) -> bool:
+        return self.dev is not None and self.dev == "DEV"
 
 
 class MessageSource(Enum):
@@ -49,23 +57,26 @@ def get_branch() -> Branch:
     if branch_name.startswith(("wip-", "wip/", "hack-", "hack/", "poc-", "poc/")):
         return Branch(branch_name, is_wip_hack=True)
 
-    match = re.match(r"(?P<hotfix>hotfix-)?(?P<prnj>PRNJ-\d+)-(?P<dev>DEV-\d+)-\w+", branch_name)
+    match = re.match(
+        rf"{HOTFIX}?{PRNJ}-{DEV}-\w+",
+        branch_name,
+    )
     if not match:
-        found_prnj = bool(re.search(r"PRNJ-\d+", branch_name))
-        found_dev = bool(re.search(r"DEV-\d+", branch_name))
-        no_description = bool(re.match(r"(?:hotfix-)?PRNJ-\d+-DEV-\d+$", branch_name))
+        found_prnj = bool(re.search(rf"{PRNJ}", branch_name))
+        found_dev = bool(re.search(rf"{DEV}", branch_name))
+        no_description = bool(re.match(rf"{HOTFIX}?{PRNJ}-{DEV}$", branch_name))
 
         error_msg = []
         if not found_prnj:
             error_msg.append("could not find PRNJ-number")
         if not found_dev:
-            error_msg.append("could not find DEV-number")
+            error_msg.append("could not find DEV number or marker")
         if no_description:
             error_msg.append("could not find a branch description")
         elif found_prnj and found_dev:
             error_msg.append(
-                "PRNJ-number and DEV-number are wrongly placed: "
-                "They should be (hotfix)?-PRNJ-number-DEV-number-message"
+                "PRNJ-number and DEV are wrongly placed: "
+                "They should be (hotfix)?-PRNJ-number-DEV-number?-message"
             )
 
         raise click.ClickException(
@@ -153,14 +164,14 @@ def append_to_commit_msg(commit_message_filename: str) -> None:
     branch, commit_msg = validate_commit_msg_body(commit_message_filename)
     if branch.is_wip_hack:
         return
-    if commit_msg.prnj_found and commit_msg.dev_found:
+    if commit_msg.prnj_found and branch.is_dev_without_number or commit_msg.dev_found:
         return
 
     # We _should_ be guaranteed to have these here, but mypy and
     # a bad `Branch` type ….
     if branch.prnj and branch.dev:
         parts = []
-        if not commit_msg.dev_found:
+        if not (branch.is_dev_without_number or commit_msg.dev_found):
             parts.append(branch.dev)
         if not commit_msg.prnj_found:
             parts.append(branch.prnj)
@@ -204,7 +215,7 @@ def check_message(commit_msg_filename: str) -> None:
 
     if not commit_msg.prnj_found:
         raise click.ClickException(f"Did not find {branch.prnj} in commit message body")
-    if not commit_msg.dev_found:
+    if not (branch.is_dev_without_number or commit_msg.dev_found):
         raise click.ClickException(f"Did not find {branch.dev} in commit message body")
 
 
