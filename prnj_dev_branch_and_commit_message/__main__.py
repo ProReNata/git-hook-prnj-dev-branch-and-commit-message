@@ -101,7 +101,11 @@ def get_message_source() -> MessageSource:
     commit_msg_src = os.environ.get("PRE_COMMIT_COMMIT_MSG_SOURCE")
     if (
         test("git rev-parse -q --verify MERGE_HEAD")
-        or test("git rev-parse -q --verify REBASE_HEAD")
+        # Be more resilient, the REBASE_HEAD _could_ be left in the .git folder
+        # without # a rebase being in progress, but _this_ is how git checks
+        # rebase in progress.
+        or test("[ -e `git rev-parse --git-dir`/rebase-merge ]")
+        or test("[ -e `git rev-parse --git-dir`/rebase-apply ]")
         or test("git rev-parse -q --verify CHERRY_PICK_HEAD")
     ):
         commit_msg_src = "merge"
