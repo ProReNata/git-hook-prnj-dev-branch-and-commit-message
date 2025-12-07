@@ -8,6 +8,13 @@ A script to be run by [pre-commit](https://pre-commit.com), to:
 3. Allow branches starting with `wip[-/]` or `hack[-/]` or `poc[-/]` to pass
    without following the naming standard.
 
+## Development with uv
+
+- Install tools (via mise): `mise install`
+- Create/Sync venv with dev deps: `uv sync`
+- Run tests: `uv run pytest`
+- Lint/format with ruff: `uv run ruff check . && uv run ruff format .`
+
 ## FAQ
 What if I want to commit code to a branch anyway?
 : Then you can `SKIP=<hook name>` to tell `pre-commit` to skip this check.

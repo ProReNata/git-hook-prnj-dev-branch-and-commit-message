@@ -1,27 +1,33 @@
-[tool.poetry]
+[project]
 name = "prnj-dev-branch-and-commit-message"
 version = "1.0"
 description = "A pre-commit prepare-commit-msg script to check for PRNJ-nnnnn and DEV-nnnn in the branch name, and add to the end of the commit message (or verify that they are there)"
-authors = ["Prorenata Backend Team <backend@prorenata.se>"]
 readme = "README.md"
+authors = [
+  { name = "Prorenata Backend Team", email = "backend@prorenata.se" },
+]
+requires-python = ">=3.12"
+dependencies = [
+  "click~=8.3.1",
+]
 
-[tool.poetry.scripts]
+[project.scripts]
 prnj-dev-branch-and-commit-message = "prnj_dev_branch_and_commit_message.__main__:main"
 
-[tool.poetry.dependencies]
-python = ">=3.9"
-click = "~8.1.7"
-
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.3.0"
-mypy = "^1.8.0"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.16"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+# Install dev dependencies with: `uv sync --group dev`
+dev = [
+  "ruff>=0.3.0",
+  "mypy>=1.8.0",
+  "pytest>=8.0.0",
+]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py312"
 line-length = 100
 lint.unfixable = ["B007", "F841", "SIM117"]
 lint.select = ["ALL"]
@@ -123,7 +129,7 @@ staticmethod-decorators = [
 ]
 extend-ignore-names = [
   "assert*",
-  "Eketorp",  # N999 violation
+  "Eketorp", # N999 violation
 ]
 
 [tool.ruff.lint.flake8-builtins]

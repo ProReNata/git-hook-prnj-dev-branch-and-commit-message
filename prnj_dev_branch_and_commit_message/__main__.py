@@ -10,15 +10,17 @@ from typing import NamedTuple
 
 import click
 
+HOTFIX = r"(?P<hotfix>hotfix/)"
+PROJ = r"(?P<proj>proj/)"
 PRNJ = r"(?P<prnj>PRNJ-\d+)"
 DEV = r"(?P<dev>DEV(?:-\d+)?)"
-HOTFIX = r"(?P<hotfix>hotfix-)"
 
 
 class Branch(NamedTuple):
     branch_name: str
     is_wip_hack: bool = False
     is_hotfix: bool = False
+    is_proj: bool = False
     prnj: str | None = None
     dev: str | None = None
 
@@ -58,7 +60,7 @@ def get_branch() -> Branch:
         return Branch(branch_name, is_wip_hack=True)
 
     match = re.match(
-        rf"{HOTFIX}?{PRNJ}-{DEV}-\w+",
+        rf"({HOTFIX}|{PROJ})?{PRNJ}(?:-{DEV})?-\w+",
         branch_name,
     )
     if not match:
@@ -84,7 +86,14 @@ def get_branch() -> Branch:
         )
 
     is_hotfix = bool(match["hotfix"])
-    return Branch(branch_name, is_hotfix=is_hotfix, prnj=match["prnj"], dev=match["dev"])
+    is_proj = bool(match["proj"])
+    return Branch(
+        branch_name,
+        is_hotfix=is_hotfix,
+        is_proj=is_proj,
+        prnj=match["prnj"],
+        dev=match["dev"],
+    )
 
 
 def test(command: str | list[str]) -> bool:
@@ -168,25 +177,32 @@ def append_to_commit_msg(commit_message_filename: str) -> None:
     branch, commit_msg = validate_commit_msg_body(commit_message_filename)
     if branch.is_wip_hack:
         return
-    if commit_msg.prnj_found and branch.is_dev_without_number or commit_msg.dev_found:
+
+    # For non-project branches, if PRNJ already present we don't need to append
+    # anything. For project dev branches, we may also need to append DEV if
+    # present in the branch.
+    if (commit_msg.prnj_found and not branch.is_proj) or commit_msg.dev_found:
         return
 
-    # We _should_ be guaranteed to have these here, but mypy and
-    # a bad `Branch` type ….
-    if branch.prnj and branch.dev:
-        parts = []
-        if not (branch.is_dev_without_number or commit_msg.dev_found):
-            parts.append(branch.dev)
-        if not commit_msg.prnj_found:
-            parts.append(branch.prnj)
+    parts: list[str] = []
+    # Append DEV only if the branch has a DEV number
+    if branch.dev and not branch.is_dev_without_number and not commit_msg.dev_found:
+        parts.append(branch.dev)
+    # Always append PRNJ if it's not already present and we have it from the
+    # branch name.
+    if branch.prnj and not commit_msg.prnj_found:
+        parts.append(branch.prnj)
 
-        ids_to_append = "\n".join(parts)
+    if not parts:
+        return
 
-        with Path(commit_message_filename).open("w") as f:
-            print(commit_msg.subject, file=f)
-            print(commit_msg.body, file=f)
-            print(f"\n{ids_to_append}", file=f)
-            print(commit_msg.rest, file=f)
+    ids_to_append = "\n".join(parts)
+
+    with Path(commit_message_filename).open("w") as f:
+        print(commit_msg.subject, file=f)
+        print(commit_msg.body, file=f)
+        print(f"\n{ids_to_append}", file=f)
+        print(commit_msg.rest, file=f)
 
 
 @click.group()
@@ -219,7 +235,7 @@ def check_message(commit_msg_filename: str) -> None:
 
     if not commit_msg.prnj_found:
         raise click.ClickException(f"Did not find {branch.prnj} in commit message body")
-    if not (branch.is_dev_without_number or commit_msg.dev_found):
+    if branch.is_proj and not (branch.is_dev_without_number or commit_msg.dev_found):
         raise click.ClickException(f"Did not find {branch.dev} in commit message body")
 
 

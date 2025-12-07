@@ -1,6 +1,57 @@
 [tools]
-python = "3.9.6"
-poetry = "1.8.2"
+python = "3.12"
+uv = "latest"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
+
+[tasks."lint:ruff:format:diff"]
+description = "Run ruff format and show the diff"
+dir = "{{config_root}}"
+run = "ruff format --diff ."
+
+[tasks."lint:ruff:format:fix"]
+description = "Run ruff format and fix formatting"
+dir = "{{config_root}}"
+run = "ruff format ."
+
+[tasks."lint:ruff:check"]
+description = "Run ruff check"
+dir = "{{config_root}}"
+run = "ruff check ."
+
+[tasks."lint:ruff:check:fix"]
+description = "Run ruff check and fix issues"
+dir = "{{config_root}}"
+run = "ruff check --fix ."
+
+[tasks."lint:mypy:check"]
+description = "Run mypy"
+dir = "{{config_root}}"
+run = "mypy ."
+
+[tasks."lint"]
+depends = ["lint:ruff:format:diff", "lint:ruff:check"]
+
+[tasks."lint:fix"]
+depends = ["lint:ruff:format:fix", "lint:ruff:check:fix"]
+
+[tasks."uv:outdated"]
+run = "uvx uv-outdated --group-by-ancestor"
+
+[tasks."uv:lock"]
+run = "uv lock"
+
+[tasks."uv:upgrade"]
+description = "Upgrade packages"
+run = """
+#!/usr/bin/env bash
+if [ "$#" -eq 0 ]; then
+  echo "Usage: uv upgrade <package1> [<package2> ...]"
+  exit 1
+fi
+for package in "$@"; do
+  uv lock -P "$package"
+done
+uv sync --inexact
+"""
