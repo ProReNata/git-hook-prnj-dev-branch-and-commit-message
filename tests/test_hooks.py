@@ -47,13 +47,13 @@ class TestBranchAndCommitMsgHooks:
         runner = CliRunner()
         msg_path = write_commit_msg(tmp_path)
 
-        # prepare-commit-msg: branch name is allowed
+        # prepare-commit-msg: committing directly to project parent branch must be blocked
         res_branch = run_cmd(runner, ["check-branch", str(msg_path)])
-        assert res_branch.exit_code == 0, res_branch.output
+        assert res_branch.exit_code != 0, "Commits must be rejected on project parent branches"
 
-        # commit-msg: committing directly to project branch must be blocked
+        # commit-msg: also reject at commit-msg stage for safety
         res_msg = run_cmd(runner, ["check-message", str(msg_path)])
-        assert res_msg.exit_code != 0, "Commits must be rejected on project branches"
+        assert res_msg.exit_code != 0, "Commits must be rejected on project parent branches"
 
     def test_project_dev_branch_with_ticket_numbers_appends_ids(
         self,
@@ -93,7 +93,8 @@ class TestBranchAndCommitMsgHooks:
         updated = msg_path.read_text()
         assert "PRNJ-12345" in updated
         # Should NOT append DEV since there is no number in the branch
-        assert "\nDEV\n" not in updated and "DEV-" not in updated
+        assert "\nDEV\n" not in updated
+        assert "DEV-" not in updated
 
     def test_hotfix_branch_allows_commits_and_requires_only_prnj(
         self,

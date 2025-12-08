@@ -59,26 +59,20 @@ def get_branch() -> Branch:
     if branch_name.startswith(("wip-", "wip/", "hack-", "hack/", "poc-", "poc/")):
         return Branch(branch_name, is_wip_hack=True)
 
-    match = re.match(
-        rf"({HOTFIX}|{PROJ})?{PRNJ}(?:-{DEV})?-\w+",
-        branch_name,
-    )
+    match = re.match(rf"({HOTFIX}|{PROJ})?{PRNJ}(?:-{DEV})?-\w+", branch_name)
     if not match:
         found_prnj = bool(re.search(rf"{PRNJ}", branch_name))
-        found_dev = bool(re.search(rf"{DEV}", branch_name))
-        no_description = bool(re.match(rf"{HOTFIX}?{PRNJ}-{DEV}$", branch_name))
+        no_description = bool(re.match(rf"({HOTFIX}|{PROJ})?{PRNJ}(?:-{DEV})?$", branch_name))
 
         error_msg = []
         if not found_prnj:
             error_msg.append("could not find PRNJ-number")
-        if not found_dev:
-            error_msg.append("could not find DEV number or marker")
         if no_description:
             error_msg.append("could not find a branch description")
-        elif found_prnj and found_dev:
+        elif found_prnj:
             error_msg.append(
-                "PRNJ-number and DEV are wrongly placed: "
-                "They should be (hotfix)?-PRNJ-number-DEV-number?-message"
+                "branch is wrongly formatted: expected optional 'hotfix/' or 'proj/' prefix, "
+                "followed by PRNJ-<n>, optional '-DEV[-n]', then a hyphenated description"
             )
 
         raise click.ClickException(
@@ -87,12 +81,21 @@ def get_branch() -> Branch:
 
     is_hotfix = bool(match["hotfix"])
     is_proj = bool(match["proj"])
+    prnj_val = match["prnj"]
+    dev_val = match["dev"]
+
+    # If this is a project parent branch (no DEV section), disallow commits
+    if is_proj and not dev_val:
+        raise click.ClickException(
+            "Commits to project branches are not allowed. Commit on a DEV branch instead."
+        )
+
     return Branch(
         branch_name,
         is_hotfix=is_hotfix,
         is_proj=is_proj,
-        prnj=match["prnj"],
-        dev=match["dev"],
+        prnj=prnj_val,
+        dev=dev_val,
     )
 
 
@@ -217,6 +220,7 @@ def check_branch(commit_msg_filename: str) -> None:
     if message_source.is_merge:
         return
 
+    # get_branch() already raises if committing on a project parent branch.
     _ = get_branch()
 
 
