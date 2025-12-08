@@ -10,7 +10,7 @@ from typing import NamedTuple
 
 import click
 
-HOTFIX = r"(?P<hotfix>hotfix/)"
+HOTFIX = r"(?P<hotfix>hotfix[-/])"
 PROJ = r"(?P<proj>proj/)"
 PRNJ = r"(?P<prnj>PRNJ-\d+)"
 DEV = r"(?P<dev>DEV(?:-\d+)?)"
