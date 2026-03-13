@@ -1,7 +1,7 @@
 [project]
 name = "prnj-dev-branch-and-commit-message"
 version = "1.0"
-description = "A pre-commit prepare-commit-msg script to check for PRNJ-nnnnn and DEV-nnnn in the branch name, and add to the end of the commit message (or verify that they are there)"
+description = "A pre-commit prepare-commit-msg script to check for a ticket ID (e.g. PRNJ-123, FLOW-456) and DEV-n in the branch name, and add to the end of the commit message (or verify that they are there)"
 readme = "README.md"
 authors = [
   { name = "Prorenata Backend Team", email = "backend@prorenata.se" },
@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 prnj-dev-branch-and-commit-message = "prnj_dev_branch_and_commit_message.__main__:main"
+ticket-dev-branch-and-commit-message = "prnj_dev_branch_and_commit_message.__main__:main"
 
 [build-system]
 requires = ["hatchling>=1.16"]

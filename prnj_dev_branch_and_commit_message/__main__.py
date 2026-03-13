@@ -12,7 +12,7 @@ import click
 
 HOTFIX = r"(?P<hotfix>hotfix[-/])"
 PROJ = r"(?P<proj>proj/)"
-PRNJ = r"(?P<prnj>PRNJ-\d+)"
+TICKET = r"(?P<ticket>[A-Z]+-\d+)"
 DEV = r"(?P<dev>DEV(?:-\d+)?)"
 
 
@@ -21,12 +21,12 @@ class Branch(NamedTuple):
     is_wip_hack: bool = False
     is_hotfix: bool = False
     is_proj: bool = False
-    prnj: str | None = None
+    ticket: str | None = None
     dev: str | None = None
 
     @property
     def is_valid(self) -> bool:
-        return self.is_wip_hack or bool(self.prnj and self.dev)
+        return self.is_wip_hack or bool(self.ticket and self.dev)
 
     @property
     def is_dev_without_number(self) -> bool:
@@ -46,11 +46,44 @@ class MessageSource(Enum):
         return self == MessageSource.MERGE
 
 
+REPO_PREFIX_MAP: dict[str, str] = {
+    "prorenatajournal": "PRNJ",
+    "lerkaka-foundation": "LF",
+    "klinta": "KLI",
+    "prorenataflow": "FLOW",
+}
+
+
 def get_branch_name_from_git() -> str:
     return subprocess.check_output(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         encoding="utf-8",
     ).strip()
+
+
+def get_remote_repo_name() -> str | None:
+    """Extract repo name from origin URL, case-folded."""
+    try:
+        url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None
+
+    # Handle both SSH (git@host:org/repo.git) and HTTPS (https://host/org/repo.git)
+    repo = url.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    repo = repo.removesuffix(".git")
+    return repo.casefold()
+
+
+def get_expected_prefix() -> str | None:
+    """Look up required prefix for the current remote."""
+    repo = get_remote_repo_name()
+    if repo is None:
+        return None
+    return REPO_PREFIX_MAP.get(repo)
 
 
 def get_branch() -> Branch:
@@ -59,20 +92,21 @@ def get_branch() -> Branch:
     if branch_name.startswith(("wip-", "wip/", "hack-", "hack/", "poc-", "poc/")):
         return Branch(branch_name, is_wip_hack=True)
 
-    match = re.match(rf"({HOTFIX}|{PROJ})?{PRNJ}(?:-{DEV})?-\w+", branch_name)
+    match = re.match(rf"({HOTFIX}|{PROJ})?{TICKET}(?:-{DEV})?-\w+", branch_name)
     if not match:
-        found_prnj = bool(re.search(rf"{PRNJ}", branch_name))
-        no_description = bool(re.match(rf"({HOTFIX}|{PROJ})?{PRNJ}(?:-{DEV})?$", branch_name))
+        found_ticket = bool(re.search(rf"{TICKET}", branch_name))
+        no_description = bool(re.match(rf"({HOTFIX}|{PROJ})?{TICKET}(?:-{DEV})?$", branch_name))
 
         error_msg = []
-        if not found_prnj:
-            error_msg.append("could not find PRNJ-number")
+        if not found_ticket:
+            error_msg.append("could not find ticket ID (e.g. PRNJ-123)")
         if no_description:
             error_msg.append("could not find a branch description")
-        elif found_prnj:
+        elif found_ticket:
             error_msg.append(
                 "branch is wrongly formatted: expected optional 'hotfix/' or 'proj/' prefix, "
-                "followed by PRNJ-<n>, optional '-DEV[-n]', then a hyphenated description"
+                "followed by a ticket ID (e.g. PRNJ-123), optional '-DEV[-n]', "
+                "then a hyphenated description"
             )
 
         raise click.ClickException(
@@ -81,8 +115,19 @@ def get_branch() -> Branch:
 
     is_hotfix = bool(match["hotfix"])
     is_proj = bool(match["proj"])
-    prnj_val = match["prnj"]
+    ticket_val = match["ticket"]
     dev_val = match["dev"]
+
+    # Validate ticket prefix against the remote repository
+    expected_prefix = get_expected_prefix()
+    if expected_prefix is not None:
+        actual_prefix = ticket_val.split("-", 1)[0]
+        if actual_prefix != expected_prefix:
+            repo_name = get_remote_repo_name()
+            raise click.ClickException(
+                f"Remote repository '{repo_name}' requires ticket prefix "
+                f"'{expected_prefix}', but branch uses '{actual_prefix}'"
+            )
 
     # If this is a project parent branch (no DEV section), disallow commits
     if is_proj and not dev_val:
@@ -94,7 +139,7 @@ def get_branch() -> Branch:
         branch_name,
         is_hotfix=is_hotfix,
         is_proj=is_proj,
-        prnj=prnj_val,
+        ticket=ticket_val,
         dev=dev_val,
     )
 
@@ -137,7 +182,7 @@ class CommitMessage:
     subject: str = field(init=False)
     body: str = field(init=False)
     rest: str = field(init=False)
-    prnj_found: bool = field(init=False)
+    ticket_found: bool = field(init=False)
     dev_found: bool = field(init=False)
 
     def __post_init__(self, branch: Branch) -> None:
@@ -162,8 +207,8 @@ class CommitMessage:
         self.subject = commit_msg_subject
         self.body = commit_msg_body
         self.rest = commit_msg_rest
-        self.prnj_found = bool(
-            branch.prnj and re.search("^" + branch.prnj, commit_msg_body, re.MULTILINE)
+        self.ticket_found = bool(
+            branch.ticket and re.search("^" + branch.ticket, commit_msg_body, re.MULTILINE)
         )
         self.dev_found = bool(
             branch.dev and re.search("^" + branch.dev, commit_msg_body, re.MULTILINE)
@@ -181,20 +226,20 @@ def append_to_commit_msg(commit_message_filename: str) -> None:
     if branch.is_wip_hack:
         return
 
-    # For non-project branches, if PRNJ already present we don't need to append
-    # anything. For project dev branches, we may also need to append DEV if
-    # present in the branch.
-    if (commit_msg.prnj_found and not branch.is_proj) or commit_msg.dev_found:
+    # For non-project branches, if ticket already present we don't
+    # need to append anything. For project dev branches, we may also
+    # need to append DEV if present in the branch.
+    if (commit_msg.ticket_found and not branch.is_proj) or commit_msg.dev_found:
         return
 
     parts: list[str] = []
     # Append DEV only if the branch has a DEV number
     if branch.dev and not branch.is_dev_without_number and not commit_msg.dev_found:
         parts.append(branch.dev)
-    # Always append PRNJ if it's not already present and we have it from the
-    # branch name.
-    if branch.prnj and not commit_msg.prnj_found:
-        parts.append(branch.prnj)
+    # Always append ticket ID if it's not already present and we have it from
+    # the branch name.
+    if branch.ticket and not commit_msg.ticket_found:
+        parts.append(branch.ticket)
 
     if not parts:
         return
@@ -231,14 +276,18 @@ def check_message(commit_msg_filename: str) -> None:
     if message_source.is_merge:
         return
 
-    if os.getenv("PRNJ_BRANCH_COMMIT_MSG_AUTO_APPEND") != "0":
+    auto_append = os.getenv(
+        "TICKET_BRANCH_COMMIT_MSG_AUTO_APPEND",
+        os.getenv("PRNJ_BRANCH_COMMIT_MSG_AUTO_APPEND"),
+    )
+    if auto_append != "0":
         append_to_commit_msg(commit_msg_filename)
     branch, commit_msg = validate_commit_msg_body(commit_msg_filename)
     if branch.is_wip_hack:
         return
 
-    if not commit_msg.prnj_found:
-        raise click.ClickException(f"Did not find {branch.prnj} in commit message body")
+    if not commit_msg.ticket_found:
+        raise click.ClickException(f"Did not find {branch.ticket} in commit message body")
     if branch.is_proj and not (branch.is_dev_without_number or commit_msg.dev_found):
         raise click.ClickException(f"Did not find {branch.dev} in commit message body")
 
